@@ -1,3 +1,5 @@
+#! /usr/bin/env node
+
 /** External Dependencies **/
 
 const {lz4BlockCodec} = require('@warren-bank/lz4-wasm');
