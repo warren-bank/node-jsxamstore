@@ -461,17 +461,23 @@ function do_unpack(in_directory, out_directory, in_arch, force) {
 
   if (assembly_store.hdr_lec !== assembly_store.hdr_gec) {
     arch_assemblies = true;
-    debug('There are more assemblies to unpack here!');
+    debug('Architecture-specific assemblies exist!');
   }
 
-  // Extract primary store
-  assembly_store.extract_all(json_data, out_directory);
-
-  // Extract architecture-specific assemblies if any
-  if (arch_assemblies) {
+  const do_arch = arch_assemblies && !!in_arch && !!ARCHITECTURE_MAP[in_arch];
+  if (do_arch) {
     const arch_assemblies_path = path.join(in_directory, ARCHITECTURE_MAP[in_arch]);
-    const arch_assembly_store = new AssemblyStore(arch_assemblies_path, manifest_entries, false);
-    arch_assembly_store.extract_all(json_data, out_directory);
+
+    if (fs.existsSync(arch_assemblies_path)) {
+      // Extract architecture-specific assembly
+      const arch_assembly_store = new AssemblyStore(arch_assemblies_path, manifest_entries, false);
+      arch_assembly_store.extract_all(json_data, out_directory);
+    }
+    //else {} /* take no action */
+  }
+  else {
+    // Extract primary assembly
+    assembly_store.extract_all(json_data, out_directory);
   }
 
   fs.writeFileSync(path.join(out_directory, FILE_ASSEMBLIES_JSON), JSON.stringify(json_data, null, 4));
@@ -682,8 +688,8 @@ function unpack_store(args) {
     .option('arch', {
       alias: 'a',
       type: 'string',
-      default: 'arm64',
-      describe: 'Which architecture to unpack: arm(64), x86(_64)',
+      default: '',
+      describe: 'Which architecture to unpack: arm(64), x86(_64). No action if a blob for the chosen architecture does not exist. When no valid architecture is chosen, unpack the primary blob.',
     })
     .option('force', {
       alias: 'f',

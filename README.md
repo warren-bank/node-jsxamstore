@@ -64,8 +64,10 @@ Usage: jsxamstore unpack [options]
 Options:
   -d, --dir    Where to load blobs/manifest from.       [string] [default: "./"]
   -o, --out    Where to save dlls/manifest to.      [string] [default: "./out/"]
-  -a, --arch   Which architecture to unpack: arm(64), x86(_64)
-                                                     [string] [default: "arm64"]
+  -a, --arch   Which architecture to unpack: arm(64), x86(_64). No action if a
+               blob for the chosen architecture does not exist. When no valid
+               architecture is chosen, unpack the primary blob.
+                                                          [string] [default: ""]
   -f, --force  Force re-create out/ directory.        [boolean] [default: false]
       --help   Show help                                               [boolean]
 ```
