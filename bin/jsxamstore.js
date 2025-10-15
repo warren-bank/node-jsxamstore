@@ -336,7 +336,7 @@ function lz4_compress(file_data, desc_idx) {
   const header = Buffer.alloc(12);
   COMPRESSED_DATA_MAGIC.copy(header, 0);
   header.writeUInt32LE(desc_idx, 4);
-  header.writeUInt32LE(file_data.length, 8);
+  header.writeUInt32LE(file_data.byteLength, 8);
 
   // Compress with lz4 high compression
   const compressedData = lz4.encodeBlock(file_data, 0);
@@ -545,7 +545,7 @@ function do_pack(in_json_config, out_directory) {
       const out_store_path = path.join(out_directory, out_store_name);
 
       if (fs.existsSync(out_store_path)) {
-        console.log('Output blob exists!');
+        console.log('Output blob exists!', out_store_name);
         return -3;
       }
 
@@ -562,18 +562,12 @@ function do_pack(in_json_config, out_directory) {
       headerBuffer.writeUInt32LE(json_hdr.gec, 12);
       headerBuffer.writeUInt32LE(json_hdr.store_id, 16);
 
-      fs.writeSync(assemblies_blob_f, headerBuffer, 0, 20, 0);
+      fs.writeSync(assemblies_blob_f, headerBuffer, 0, 20);
+
+      let next_data_offset = 20; // headerBuffer
 
       const primary = json_hdr.store_id === 0;
 
-      let next_entry_offset = 20;
-      let next_data_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 40;
-
-      if (!primary) {
-        next_data_offset = 20 + json_hdr.lec * 24;
-      }
-
-      // First pass: write entries + DLL content
       for (const assembly of json_data.assemblies) {
         if (assembly.store_id !== json_hdr.store_id) {
           debug('Skipping assembly for another store');
@@ -585,7 +579,12 @@ function do_pack(in_json_config, out_directory) {
           assembly_data = lz4_compress(assembly_data, assembly.lz4_desc_idx);
         }
 
-        const data_size = assembly_data.length;
+        const data_size = assembly_data.byteLength;
+
+        next_data_offset += 24; // entryBuffer
+        if (primary) {
+          next_data_offset += (json_data.assemblies.length * 20 * 2); // hashes
+        }
 
         // Write entry data
         const entryBuffer = Buffer.alloc(24);
@@ -597,66 +596,55 @@ function do_pack(in_json_config, out_directory) {
         entryBuffer.writeUInt32LE(0, 16);
         entryBuffer.writeUInt32LE(0, 20);
 
-        fs.writeSync(assemblies_blob_f, entryBuffer, 0, 24, next_entry_offset);
+        fs.writeSync(assemblies_blob_f, entryBuffer, 0, 24);
+
+        // Write hashes
+        if (primary) {
+          // hash32
+          const sortedHash32 = [...json_data.assemblies].sort((a, b) => (a.hash32 > b.hash32 ? 1 : -1));
+          for (const _assembly of sortedHash32) {
+            const [hash32, hash64] = gen_xxhash(_assembly.name, true);
+            const mapping_id = _assembly.store_id === 0 ? _assembly.blob_idx : store_zero_lec + _assembly.blob_idx;
+
+            const hash32Buffer = Buffer.alloc(20);
+            // hash32 is 4 bytes
+            hash32.copy(hash32Buffer, 0);
+            // 4 bytes zero
+            hash32Buffer.writeUInt32LE(0, 4);
+            // mapping_id
+            hash32Buffer.writeUInt32LE(mapping_id, 8);
+            // local_store_index (blob_idx)
+            hash32Buffer.writeUInt32LE(_assembly.blob_idx, 12);
+            // store_id
+            hash32Buffer.writeUInt32LE(_assembly.store_id, 16);
+
+            fs.writeSync(assemblies_blob_f, hash32Buffer, 0, 20);
+          }
+
+          // hash64
+          const sortedHash64 = [...json_data.assemblies].sort((a, b) => (a.hash64 > b.hash64 ? 1 : -1));
+          for (const _assembly of sortedHash64) {
+            const [hash32, hash64] = gen_xxhash(_assembly.name, true);
+            const mapping_id = _assembly.store_id === 0 ? _assembly.blob_idx : store_zero_lec + _assembly.blob_idx;
+
+            const hash64Buffer = Buffer.alloc(20);
+            // hash64 is 8 bytes
+            hash64.copy(hash64Buffer, 0);
+            // mapping_id
+            hash64Buffer.writeUInt32LE(mapping_id, 8);
+            // local_store_index (blob_idx)
+            hash64Buffer.writeUInt32LE(_assembly.blob_idx, 12);
+            // store_id
+            hash64Buffer.writeUInt32LE(_assembly.store_id, 16);
+
+            fs.writeSync(assemblies_blob_f, hash64Buffer, 0, 20);
+          }
+        }
 
         // Write binary data
-        fs.writeSync(assemblies_blob_f, assembly_data, 0, data_size, next_data_offset);
+        fs.writeSync(assemblies_blob_f, assembly_data, 0, data_size);
 
-        next_data_offset += data_size;
-        next_entry_offset += 24;
-      }
-
-      if (!primary) {
-        fs.closeSync(assemblies_blob_f);
-        continue;
-      }
-
-      // Second + third pass: write hashes
-      let next_hash32_offset = 20 + json_hdr.lec * 24;
-      let next_hash64_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 20;
-
-      const assembly_data = json_data.assemblies;
-
-      // hash32
-      const sortedHash32 = [...assembly_data].sort((a, b) => (a.hash32 > b.hash32 ? 1 : -1));
-      for (const assembly of sortedHash32) {
-        const [hash32, hash64] = gen_xxhash(assembly.name, true);
-        const mapping_id = assembly.store_id === 0 ? assembly.blob_idx : store_zero_lec + assembly.blob_idx;
-
-        const hash32Buffer = Buffer.alloc(20);
-        // hash32 is 4 bytes
-        hash32.copy(hash32Buffer, 0);
-        // 4 bytes zero
-        hash32Buffer.writeUInt32LE(0, 4);
-        // mapping_id
-        hash32Buffer.writeUInt32LE(mapping_id, 8);
-        // local_store_index (blob_idx)
-        hash32Buffer.writeUInt32LE(assembly.blob_idx, 12);
-        // store_id
-        hash32Buffer.writeUInt32LE(assembly.store_id, 16);
-
-        fs.writeSync(assemblies_blob_f, hash32Buffer, 0, 20, next_hash32_offset);
-        next_hash32_offset += 20;
-      }
-
-      // hash64
-      const sortedHash64 = [...assembly_data].sort((a, b) => (a.hash64 > b.hash64 ? 1 : -1));
-      for (const assembly of sortedHash64) {
-        const [hash32, hash64] = gen_xxhash(assembly.name, true);
-        const mapping_id = assembly.store_id === 0 ? assembly.blob_idx : store_zero_lec + assembly.blob_idx;
-
-        const hash64Buffer = Buffer.alloc(20);
-        // hash64 is 8 bytes
-        hash64.copy(hash64Buffer, 0);
-        // mapping_id
-        hash64Buffer.writeUInt32LE(mapping_id, 8);
-        // local_store_index (blob_idx)
-        hash64Buffer.writeUInt32LE(assembly.blob_idx, 12);
-        // store_id
-        hash64Buffer.writeUInt32LE(assembly.store_id, 16);
-
-        fs.writeSync(assemblies_blob_f, hash64Buffer, 0, 20, next_hash64_offset);
-        next_hash64_offset += 20;
+        next_data_offset += data_size; // assembly_data
       }
 
       fs.closeSync(assemblies_blob_f);
