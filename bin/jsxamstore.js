@@ -421,8 +421,8 @@ function usage() {
   return 0;
 }
 
-function do_unpack(in_directory, out_directory, in_arch, force) {
-  let arch_assemblies = false;
+function do_unpack(in_directory, out_directory, include_arch_assemblies, force) {
+  let has_arch_assemblies = false;
 
   in_directory  = path.resolve(in_directory);
   out_directory = path.resolve(out_directory);
@@ -459,25 +459,44 @@ function do_unpack(in_directory, out_directory, in_arch, force) {
 
   const assembly_store = new AssemblyStore(assemblies_path, manifest_entries);
 
+  // Extract primary assembly
+  assembly_store.extract_all(json_data, path.join(out_directory, 'primary'));
+
   if (assembly_store.hdr_lec !== assembly_store.hdr_gec) {
-    arch_assemblies = true;
+    has_arch_assemblies = true;
     debug('Architecture-specific assemblies exist!');
   }
 
-  const do_arch = arch_assemblies && !!in_arch && !!ARCHITECTURE_MAP[in_arch];
-  if (do_arch) {
-    const arch_assemblies_path = path.join(in_directory, ARCHITECTURE_MAP[in_arch]);
+  if (has_arch_assemblies) {
+    let all_arch = true;
 
-    if (fs.existsSync(arch_assemblies_path)) {
-      // Extract architecture-specific assembly
-      const arch_assembly_store = new AssemblyStore(arch_assemblies_path, manifest_entries, false);
-      arch_assembly_store.extract_all(json_data, out_directory);
+    if (!Array.isArray(include_arch_assemblies)) {
+      include_arch_assemblies = (!!include_arch_assemblies && (typeof include_arch_assemblies === 'string')) ? [include_arch_assemblies] : [];
     }
-    //else {} /* take no action */
-  }
-  else {
-    // Extract primary assembly
-    assembly_store.extract_all(json_data, out_directory);
+    if (include_arch_assemblies.includes('no') || include_arch_assemblies.includes('0')) {
+      all_arch = false;
+      include_arch_assemblies = [];
+    }
+    // filter to remove invalid values
+    const valid_arch = Object.keys(ARCHITECTURE_MAP);
+    include_arch_assemblies = include_arch_assemblies.filter(arch => valid_arch.includes(arch));
+    if (include_arch_assemblies.length) {
+      all_arch = false;
+      include_arch_assemblies = include_arch_assemblies.map(arch => arch.toLowerCase());
+    }
+    if (all_arch) {
+      include_arch_assemblies = valid_arch;
+    }
+
+    for (let arch of include_arch_assemblies) {
+      const arch_assembly_path = path.join(in_directory, ARCHITECTURE_MAP[arch]);
+
+      if (fs.existsSync(arch_assembly_path)) {
+        // Extract architecture-specific assembly
+        const arch_assembly_store = new AssemblyStore(arch_assembly_path, manifest_entries, false);
+        arch_assembly_store.extract_all(json_data, path.join(out_directory, arch));
+      }
+    }
   }
 
   fs.writeFileSync(path.join(out_directory, FILE_ASSEMBLIES_JSON), JSON.stringify(json_data, null, 4));
@@ -687,9 +706,10 @@ function unpack_store(args) {
     })
     .option('arch', {
       alias: 'a',
+      array: true,
       type: 'string',
-      default: '',
-      describe: 'Which architecture to unpack: arm(64), x86(_64). No action if a blob for the chosen architecture does not exist. When no valid architecture is chosen, unpack the primary blob.',
+      default: [],
+      describe: 'Which architectures to unpack. By default, all are selected. To select a subset, repeat flag with any combination of: "arm", "arm64", "x86", "x86_64". To exclude all, use: "no" or "0".',
     })
     .option('force', {
       alias: 'f',
