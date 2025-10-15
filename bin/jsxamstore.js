@@ -468,6 +468,7 @@ function do_unpack(in_directory, out_directory, include_arch_assemblies, force) 
   }
 
   if (has_arch_assemblies) {
+    const valid_arch = Object.keys(ARCHITECTURE_MAP);
     let all_arch = true;
 
     if (!Array.isArray(include_arch_assemblies)) {
@@ -477,12 +478,12 @@ function do_unpack(in_directory, out_directory, include_arch_assemblies, force) 
       all_arch = false;
       include_arch_assemblies = [];
     }
-    // filter to remove invalid values
-    const valid_arch = Object.keys(ARCHITECTURE_MAP);
-    include_arch_assemblies = include_arch_assemblies.filter(arch => valid_arch.includes(arch));
+    if (include_arch_assemblies.length) {
+      // normalize values to lowercase, then filter to remove invalid values
+      include_arch_assemblies = include_arch_assemblies.map(arch => arch.toLowerCase()).filter(arch => valid_arch.includes(arch));
+    }
     if (include_arch_assemblies.length) {
       all_arch = false;
-      include_arch_assemblies = include_arch_assemblies.map(arch => arch.toLowerCase());
     }
     if (all_arch) {
       include_arch_assemblies = valid_arch;
