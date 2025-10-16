@@ -240,7 +240,9 @@ class AssemblyStore {
   extract_all(json_config, outpath = 'out') {
     // Initialize store JSON
     const store_json = {};
-    store_json[this.file_name] = {};
+    store_json[this.file_name] = {
+      store_idx: json_config.stores.length
+    };
 
     store_json[this.file_name]['header'] = {
       version: this.hdr_version,
@@ -251,7 +253,9 @@ class AssemblyStore {
 
     for (let i = 0; i < this.assemblies_list.length; i++) {
       const assembly = this.assemblies_list[i];
-      const assembly_dict = {};
+      const assembly_dict = {
+        store_idx: store_json[this.file_name].store_idx
+      };
 
       assembly_dict.lz4 = false;
 
