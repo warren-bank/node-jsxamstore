@@ -1,0 +1,145 @@
+v1.3.0
+
+----------------------------------------------------------------------
+
+observed "unpack" data (assemblies.json):
+=========================================
+{
+  "stores": [
+    {
+      "assemblies.blob": {
+        "header": {
+          "lec": 134,
+          "gec": 141,
+          "store_id": 0
+        }
+      }
+    },
+    {
+      "assemblies.armeabi_v7a.blob": {
+        "header": {
+          "lec": 7,
+          "gec": 0,
+          "store_id": 1
+        }
+      }
+    },
+    {
+      "assemblies.arm64_v8a.blob": {
+        "header": {
+          "lec": 7,
+          "gec": 0,
+          "store_id": 1
+        }
+      }
+    },
+    {
+      "assemblies.x86.blob": {
+        "header": {
+          "lec": 7,
+          "gec": 0,
+          "store_id": 1
+        }
+      }
+    },
+    {
+      "assemblies.x86_64.blob": {
+        "header": {
+          "lec": 7,
+          "gec": 0,
+          "store_id": 1
+        }
+      }
+    },
+    "assemblies": [...]
+}
+
+observed problem:
+=================
+
+* architecture-specific assembly stores don't use a unique "store_id"
+
+* value of primary assembly store "gec"
+    = primary "lec" + (1)(architecture-specific "lec")
+    = 134 + (1)(7) = 141
+  however, for this example data, value of primary "gec" should
+    = primary "lec" + (4)(architecture-specific "lec")
+    = 134 + (4)(7) = 162
+
+notes:
+======
+
+* this isn't a problem for "pyxamstore",
+  because its "unpack" operation always includes:
+    primary store + exactly 1 architecture-specific store
+
+* the values of "store_id" and "gec" are both extracted
+  from assembly store blobs during "unpack",
+  so these values cannot be changed
+
+----------------------------------------------------------------------
+
+workaround ideas:
+=================
+
+* "store_id"
+  - include new fields:
+      store.store_idx
+      assembly.store_idx
+    which allows each assembly to cross-referenced the store that will pack it
+
+* "gec"
+  - can be ignored
+  - assemblies.length is the appropriate count of global assemblies,
+    for the purpose of adding hash32 and hash64 blocks
+    when repacking the primary assembly store
+
+----------------------------------------------------------------------
+
+touchpoint:
+===========
+
+// where "store_idx" should be used instead of "store_id"
+
+function do_pack() {
+      // First pass: write entries + DLL content
+      for (const assembly of json_data.assemblies) {
+        if (assembly.store_id !== json_hdr.store_id) {
+          debug('Skipping assembly for another store');
+          continue;
+        }
+}
+
+notes:
+======
+
+* using the previous example,
+  for any of the architecture-specific assembly stores,
+  this filter is intended to only allow 7 assemblies through;
+  however, in reality, it will allow (4)(7) = 28 assemblies
+
+----------------------------------------------------------------------
+
+touchpoint:
+===========
+
+// where "assemblies.length" should be used instead of "gec"
+
+function do_pack() {
+  let next_data_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 40;
+
+  let next_hash64_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 20;
+}
+
+notes:
+======
+
+* using the previous example,
+  the DataOffset value included in the table of contents entry
+  for each LOCAL assembly in the primary assembly store
+  will be incorrect
+  - this value is a pointer to allow the corresponding assembly
+    (ie: DLL file) to be extracted from the blob
+  - as such, the entire blob is corrupt
+
+----------------------------------------------------------------------
