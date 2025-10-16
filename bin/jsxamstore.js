@@ -599,7 +599,7 @@ function do_pack(in_json_config, out_directory) {
 
       // First pass: write entries + DLL content
       for (const assembly of json_data.assemblies) {
-        if (assembly.store_id !== json_hdr.store_id) {
+        if (assembly.store_idx !== store_data.store_idx) {
           debug('Skipping assembly for another store');
           continue;
         }
