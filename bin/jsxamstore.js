@@ -591,7 +591,7 @@ function do_pack(in_json_config, out_directory) {
       const primary = json_hdr.store_id === 0;
 
       let next_entry_offset = 20;
-      let next_data_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 40;
+      let next_data_offset = 20 + (json_hdr.lec * 24) + (json_data.assemblies.length * 40);
 
       if (!primary) {
         next_data_offset = 20 + json_hdr.lec * 24;
@@ -636,8 +636,8 @@ function do_pack(in_json_config, out_directory) {
       }
 
       // Second + third pass: write hashes
-      let next_hash32_offset = 20 + json_hdr.lec * 24;
-      let next_hash64_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 20;
+      let next_hash32_offset = 20 + (json_hdr.lec * 24);
+      let next_hash64_offset = 20 + (json_hdr.lec * 24) + (json_data.assemblies.length * 20);
 
       const assembly_data = json_data.assemblies;
 
