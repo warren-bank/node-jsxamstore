@@ -1,0 +1,35 @@
+================================
+"assemblies.blob" file contents:
+================================
+20 = header
+------------ for each LOCAL assembly (ie: DLL) file, sorted by `json_data.assemblies[n].blob_idx`:
+24 = table of contents entry, which includes DataOffset and DataSize to extract DLL data from blob
+------------ for each GLOBAL assembly (ie: DLL) file, sorted by `json_data.assemblies[n].hash32` (after conversion from string to BigInt):
+20 = hash32
+------------ for each GLOBAL assembly (ie: DLL) file, sorted by `json_data.assemblies[n].hash64` (after conversion from string to BigInt):
+20 = hash64
+------------ for each LOCAL assembly (ie: DLL) file, sorted by `json_data.assemblies[n].blob_idx`:
+DataSize = DLL data
+------------
+
+======
+where:
+======
+* the current assembly store is identified by:
+    `json_data.stores[i]`
+* LOCAL only includes assemblies in the current assembly store, indicated by:
+    `json_data.stores[i].store_id` === `json_data.assemblies[n].store_id`
+* GLOBAL includes all items in the `json_data.assemblies` list of assemblies
+* `json_data.stores[i].lec` is a count of all LOCAL assemblies
+* `json_data.stores[i].gec` is a count of all GLOBAL assemblies,
+  which includes all LOCAL assemblies
+
+=============================================
+primary vs. architecture-specific blob files:
+=============================================
+* the primary assembly store is identified by:
+    `json_data.stores[i].store_id` === `0`
+* only the primary "assemblies.blob" file includes:
+  - hash32
+  - hash64
+* architecture-specific blob files exclude these blocks
