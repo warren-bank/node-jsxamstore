@@ -1,0 +1,18 @@
+v1.4.0
+
+----------------------------------------------------------------------
+
+1) revert changes made in v1.3.0 to:
+
+function do_pack() {
+  let next_data_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 40;
+
+  let next_hash64_offset = 20 + json_hdr.lec * 24 + json_hdr.gec * 20;
+}
+
+----------------------------------------------------------------------
+
+2) ensure that 'pack' adds exactly "json_hdr.gec" hash32 and hash64 values
+   to the primary assembly store
+
+----------------------------------------------------------------------

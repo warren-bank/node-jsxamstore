@@ -437,7 +437,7 @@ function do_unpack(in_directory, out_directory, include_arch_assemblies, force) 
 
   if (fs.existsSync(out_directory)) {
     console.log('Out directory already exists!');
-    return 3;
+    return 11;
   }
 
   const manifest_path = path.join(in_directory, FILE_ASSEMBLIES_MANIFEST);
@@ -445,16 +445,16 @@ function do_unpack(in_directory, out_directory, include_arch_assemblies, force) 
 
   if (!fs.existsSync(manifest_path)) {
     console.log(`Manifest file '${manifest_path}' does not exist!`);
-    return 4;
+    return 12;
   } else if (!fs.existsSync(assemblies_path)) {
     console.log(`Main assemblies blob '${assemblies_path}' does not exist!`);
-    return 4;
+    return 13;
   }
 
   const manifest_entries = read_manifest(manifest_path);
   if (!manifest_entries) {
     console.log(`Unable to parse '${FILE_ASSEMBLIES_MANIFEST}' file!`);
-    return 5;
+    return 14;
   }
 
   const json_data = { stores: [], assemblies: [] };
@@ -515,7 +515,7 @@ function do_pack(in_json_config, out_directory) {
 
   if (!fs.existsSync(in_json_config)) {
     console.log(`Config file '${in_json_config}' does not exist!`);
-    return -1;
+    return 21;
   }
 
   if (!fs.existsSync(out_directory)) {
@@ -526,7 +526,7 @@ function do_pack(in_json_config, out_directory) {
 
   if (fs.existsSync(assemblies_manifest_path)) {
     console.log('Output manifest exists!');
-    return -2;
+    return 22;
   }
 
   const json_data = JSON.parse(fs.readFileSync(in_json_config, 'utf8'));
@@ -570,7 +570,7 @@ function do_pack(in_json_config, out_directory) {
 
       if (fs.existsSync(out_store_path)) {
         console.log('Output blob exists!');
-        return -3;
+        return 23;
       }
 
       console.log(`Writing '${out_store_name}'...`);
@@ -591,7 +591,7 @@ function do_pack(in_json_config, out_directory) {
       const primary = json_hdr.store_id === 0;
 
       let next_entry_offset = 20;
-      let next_data_offset = 20 + (json_hdr.lec * 24) + (json_data.assemblies.length * 40);
+      let next_data_offset = 20 + (json_hdr.lec * 24) + (json_hdr.gec * 40);
 
       if (!primary) {
         next_data_offset = 20 + json_hdr.lec * 24;
@@ -637,12 +637,16 @@ function do_pack(in_json_config, out_directory) {
 
       // Second + third pass: write hashes
       let next_hash32_offset = 20 + (json_hdr.lec * 24);
-      let next_hash64_offset = 20 + (json_hdr.lec * 24) + (json_data.assemblies.length * 20);
+      let next_hash64_offset = 20 + (json_hdr.lec * 24) + (json_hdr.gec * 20);
 
       const assembly_data = json_data.assemblies;
 
       // hash32
-      const sortedHash32 = [...assembly_data].sort((a, b) => (a.hash32 > b.hash32 ? 1 : -1));
+      const sortedHash32 = sort_assemblies_by_hash(json_data.assemblies, 'hash32');
+      if (sortedHash32.length !== json_hdr.gec) {
+        console.log(`Sorted hash32 is the wrong length. Expected: ${json_hdr.gec}. Found: ${sortedHash32.length}.`);
+        return 24;
+      }
       for (const assembly of sortedHash32) {
         const [hash32, hash64] = gen_xxhash(assembly.name, true);
         const mapping_id = assembly.store_id === 0 ? assembly.blob_idx : store_zero_lec + assembly.blob_idx;
@@ -664,7 +668,11 @@ function do_pack(in_json_config, out_directory) {
       }
 
       // hash64
-      const sortedHash64 = [...assembly_data].sort((a, b) => (a.hash64 > b.hash64 ? 1 : -1));
+      const sortedHash64 = sort_assemblies_by_hash(json_data.assemblies, 'hash64');
+      if (sortedHash64.length !== json_hdr.gec) {
+        console.log(`Sorted hash64 is the wrong length. Expected: ${json_hdr.gec}. Found: ${sortedHash64.length}.`);
+        return 25;
+      }
       for (const assembly of sortedHash64) {
         const [hash32, hash64] = gen_xxhash(assembly.name, true);
         const mapping_id = assembly.store_id === 0 ? assembly.blob_idx : store_zero_lec + assembly.blob_idx;
@@ -687,6 +695,23 @@ function do_pack(in_json_config, out_directory) {
     }
   }
   return 0;
+}
+
+function sort_assemblies_by_hash(assembly_data, key) {
+  let sortedHash = [...assembly_data];
+
+  // only keep assemblies belonging to: the primary store, and the first architecture-specific store
+  sortedHash = sortedHash.filter(assembly => assembly.store_idx < 2);
+
+  // sort by hash => lexicographical order of hex-encoded strings
+  sortedHash.sort((a, b) => {
+    a = a[key];
+    b = b[key];
+
+    return (a > b) ? 1 : ((a < b) ? -1 : 0);
+  });
+
+  return sortedHash;
 }
 
 /** Command handlers **/
@@ -758,7 +783,7 @@ function pack_store(args) {
 function gen_hash(args) {
   if (args.length < 1) {
     console.log('Need to provide a string to hash!');
-    return -1;
+    return 31;
   }
 
   const file_name = args.shift();
@@ -779,7 +804,7 @@ function main() {
   if (argv.length < 3) {
     console.log('Mode is required!');
     usage();
-    return -1;
+    return 1;
   }
 
   const mode = argv[2];
@@ -798,7 +823,7 @@ function main() {
       return usage();
     default:
       console.log(`Unknown mode: '${mode}'`);
-      return -2;
+      return 2;
   }
 }
 
