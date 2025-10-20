@@ -1,0 +1,30 @@
+v2.0.0
+
+----------------------------------------------------------------------
+
+replace the library: '@warren-bank/lz4-wasm'
+  https://github.com/warren-bank/node-lz4-wasm
+
+with the library: '@warren-bank/lz4-hc-wasm'
+  https://github.com/warren-bank/node-lz4-hc-wasm
+
+notes:
+======
+* for 'unpack'
+  - decompression worked with both libraries
+* for 'pack'
+  - compression with '@warren-bank/lz4-wasm'
+    * uses lz4
+    * does not work
+  - compression with '@warren-bank/lz4-hc-wasm'
+    * uses lz4hc
+    * does work
+    * compression level 9 is used, because:
+      - this is the level chosen by `pyxamstore`
+        * cross-reference:
+          https://github.com/jakev/pyxamstore/blob/23cd52612702d08495570f96f60883d6047ae429/pyxamstore/explorer.py#L351
+      - this is the level used by `Xamarin`
+        * cross-reference:
+          https://github.com/dotnet/android/blob/681887ebdbd192ce7ce1cd02221d4939599ba762/src/Xamarin.Android.Build.Tasks/Utilities/AssemblyCompression.cs#L81
+
+----------------------------------------------------------------------

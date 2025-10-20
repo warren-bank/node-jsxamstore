@@ -2,7 +2,7 @@
 
 /** External Dependencies **/
 
-const {lz4BlockCodec} = require('@warren-bank/lz4-wasm');
+const lz4BlockCodec = require('@warren-bank/lz4-hc-wasm');
 const xxhash = require('xxhashjs');
 
 const fs = require('fs');
@@ -237,7 +237,7 @@ class AssemblyStore {
     }
   }
 
-  extract_all(json_config, outpath = 'out') {
+  async extract_all(json_config, outpath = 'out') {
     // Initialize store JSON
     const store_json = {};
     store_json[this.file_name] = {
@@ -279,7 +279,7 @@ class AssemblyStore {
       const assembly_header = this.raw.subarray(assembly.data_offset, assembly.data_offset + 4);
 
       if (assembly_header.equals(COMPRESSED_DATA_MAGIC)) {
-        assembly_data = AssemblyStore.decompress_lz4(
+        assembly_data = await AssemblyStore.decompress_lz4(
           this.raw.subarray(assembly.data_offset, assembly.data_offset + assembly.data_size)
         );
         assembly_dict.lz4 = true;
@@ -304,7 +304,7 @@ class AssemblyStore {
     return json_config;
   }
 
-  static decompress_lz4(compressed_data) {
+  static async decompress_lz4(compressed_data) {
     // compressed_data is a Buffer
     // Format:
     // 0-3: "XALZ"
@@ -315,7 +315,7 @@ class AssemblyStore {
     const unpacked_payload_len = compressed_data.readUInt32LE(8);
     const compressed_payload = compressed_data.subarray(12);
 
-    const uncompressed = lz4.decodeBlock(compressed_payload, 0, unpacked_payload_len);
+    const uncompressed = await lz4.uncompressBlock(compressed_payload);
     const decompressedSize = uncompressed.length;
 
     if (decompressedSize !== unpacked_payload_len) {
@@ -328,7 +328,7 @@ class AssemblyStore {
 
 /** Utility functions **/
 
-function lz4_compress(file_data, desc_idx) {
+async function lz4_compress(file_data, desc_idx) {
   // file_data: Buffer
   // Compose header + compressed data
 
@@ -343,7 +343,7 @@ function lz4_compress(file_data, desc_idx) {
   header.writeUInt32LE(file_data.length, 8);
 
   // Compress with lz4 high compression
-  const compressedData = lz4.encodeBlock(file_data, 0);
+  const compressedData = await lz4.compressBlockHC(file_data, 9);
 
   return Buffer.concat([header, compressedData]);
 }
@@ -425,7 +425,7 @@ function usage() {
   return 0;
 }
 
-function do_unpack(in_directory, out_directory, include_arch_assemblies, force) {
+async function do_unpack(in_directory, out_directory, include_arch_assemblies, force) {
   let has_arch_assemblies = false;
 
   in_directory  = path.resolve(in_directory);
@@ -464,7 +464,7 @@ function do_unpack(in_directory, out_directory, include_arch_assemblies, force) 
   const assembly_store = new AssemblyStore(assemblies_path, manifest_entries);
 
   // Extract primary assembly
-  assembly_store.extract_all(json_data, path.join(out_directory, 'primary'));
+  await assembly_store.extract_all(json_data, path.join(out_directory, 'primary'));
 
   if (assembly_store.hdr_lec !== assembly_store.hdr_gec) {
     has_arch_assemblies = true;
@@ -499,7 +499,7 @@ function do_unpack(in_directory, out_directory, include_arch_assemblies, force) 
       if (fs.existsSync(arch_assembly_path)) {
         // Extract architecture-specific assembly
         const arch_assembly_store = new AssemblyStore(arch_assembly_path, manifest_entries, false);
-        arch_assembly_store.extract_all(json_data, path.join(out_directory, arch));
+        await arch_assembly_store.extract_all(json_data, path.join(out_directory, arch));
       }
     }
   }
@@ -509,7 +509,7 @@ function do_unpack(in_directory, out_directory, include_arch_assemblies, force) 
   return 0;
 }
 
-function do_pack(in_json_config, out_directory) {
+async function do_pack(in_json_config, out_directory) {
   in_json_config = path.resolve(in_json_config);
   out_directory = path.resolve(out_directory);
 
@@ -608,7 +608,7 @@ function do_pack(in_json_config, out_directory) {
 
         let assembly_data = fs.readFileSync(assembly.file);
         if (assembly.lz4) {
-          assembly_data = lz4_compress(assembly_data, assembly.lz4_desc_idx);
+          assembly_data = await lz4_compress(assembly_data, assembly.lz4_desc_idx);
         }
 
         const data_size = assembly_data.length;
@@ -718,7 +718,7 @@ function sort_assemblies_by_hash(assembly_data, key) {
 
 /** Command handlers **/
 
-function unpack_store(args) {
+async function unpack_store(args) {
   // Simple argument parsing
   const yargs = require('yargs/yargs');
 
@@ -754,10 +754,10 @@ function unpack_store(args) {
 
   const parsed_args = parser.parse();
 
-  return do_unpack(parsed_args.dir, parsed_args.out, parsed_args.arch, parsed_args.force);
+  return await do_unpack(parsed_args.dir, parsed_args.out, parsed_args.arch, parsed_args.force);
 }
 
-function pack_store(args) {
+async function pack_store(args) {
   const yargs = require('yargs/yargs');
 
   const parser = yargs(args)
@@ -779,7 +779,7 @@ function pack_store(args) {
 
   const parsed_args = parser.parse();
 
-  return do_pack(parsed_args.config, parsed_args.out);
+  return await do_pack(parsed_args.config, parsed_args.out);
 }
 
 function gen_hash(args) {
@@ -802,7 +802,7 @@ function gen_hash(args) {
 
 /** Main **/
 
-function main() {
+async function main() {
   if (argv.length < 3) {
     console.log('Mode is required!');
     usage();
@@ -814,9 +814,9 @@ function main() {
 
   switch (mode) {
     case 'unpack':
-      return unpack_store(args);
+      return await unpack_store(args);
     case 'pack':
-      return pack_store(args);
+      return await pack_store(args);
     case 'hash':
       return gen_hash(args);
     case '-h':
@@ -830,9 +830,9 @@ function main() {
 }
 
 async function init() {
-  lz4 = await lz4BlockCodec.createInstance();
+  lz4 = await lz4BlockCodec.init();
 
-  const ret = main();
+  const ret = await main();
   exit(ret);
 }
 
