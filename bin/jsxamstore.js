@@ -541,6 +541,8 @@ function do_pack(in_json_config, out_directory) {
   );
 
   for (const assembly of json_data.assemblies) {
+    if (assembly.store_idx >= 2) break;
+
     const [hash32, hash64] = gen_xxhash(assembly.name);
 
     const line = `0x${hash32}  0x${hash64}  ${assembly.store_id

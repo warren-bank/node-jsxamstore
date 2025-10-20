@@ -16,3 +16,8 @@ function do_pack() {
    to the primary assembly store
 
 ----------------------------------------------------------------------
+
+3) ensure that 'pack' adds exactly "json_hdr.gec" hash32 and hash64 values
+   to the assembly manifest
+
+----------------------------------------------------------------------
