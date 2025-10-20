@@ -316,10 +316,10 @@ class AssemblyStore {
     const compressed_payload = compressed_data.subarray(12);
 
     const uncompressed = lz4.decodeBlock(compressed_payload, 0, unpacked_payload_len);
-    const decompressedSize = uncompressed.byteLength;
+    const decompressedSize = uncompressed.length;
 
     if (decompressedSize !== unpacked_payload_len) {
-      throw new Error('Decompressed size mismatch');
+      throw new Error(`Decompressed size mismatch. Header: ${unpacked_payload_len}B. Data: ${decompressedSize}B.`);
     }
 
     return uncompressed;
@@ -571,7 +571,7 @@ function do_pack(in_json_config, out_directory) {
       const out_store_path = path.join(out_directory, out_store_name);
 
       if (fs.existsSync(out_store_path)) {
-        console.log('Output blob exists!');
+        console.log('Output blob exists!', out_store_name);
         return 23;
       }
 
