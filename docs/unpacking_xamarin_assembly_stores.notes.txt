@@ -41,14 +41,6 @@ notes:
   `json_data.assemblies[n].hash64`
   - these fields are strings that contain hex-encoded values (ex: "0x12345")
   - hash64 values are too large for Number, and require BigInt
-  - sorting on these fields is performed on the string representation,
-    rather than numerical..
-    * is this correct?
-    * as a test, I changed:
-        const sortedHash32 = [...assembly_data].sort((a, b) => (a.hash32 > b.hash32 ? 1 : -1));
-        const sortedHash64 = [...assembly_data].sort((a, b) => (a.hash64 > b.hash64 ? 1 : -1));
-      to:
-        const sortedHash32 = [...assembly_data].sort((a, b) => (BigInt(a.hash32) > BigInt(b.hash32) ? 1 : -1));
-        const sortedHash64 = [...assembly_data].sort((a, b) => (BigInt(a.hash64) > BigInt(b.hash64) ? 1 : -1));
-      but:
-        for both test cases, "pack" doesn't currently work
+  - sorting on these fields is performed on the string representation
+    * lexicographical sort order of hex-encoded strings
+      is the same ordering as numerical sort used on decoded values
