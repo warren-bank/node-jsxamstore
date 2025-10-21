@@ -474,6 +474,7 @@ async function do_unpack(in_directory, out_directory, include_arch_assemblies, f
   if (has_arch_assemblies) {
     const valid_arch = Object.keys(ARCHITECTURE_MAP);
     let all_arch = true;
+    let has_arch = false;
 
     if (!Array.isArray(include_arch_assemblies)) {
       include_arch_assemblies = (!!include_arch_assemblies && (typeof include_arch_assemblies === 'string')) ? [include_arch_assemblies] : [];
@@ -504,6 +505,23 @@ async function do_unpack(in_directory, out_directory, include_arch_assemblies, f
         // Extract architecture-specific assembly
         const arch_assembly_store = new AssemblyStore(arch_assembly_path, manifest_entries, false);
         await arch_assembly_store.extract_all(json_data, path.join(out_directory, arch));
+        has_arch = true;
+      }
+    }
+
+    if (!has_arch) {
+      // either: "--arch none", or no assembly stores found for any of the included architectures
+      // update "gec" to equal "lec"
+
+      if (
+        (json_data.stores.length === 1) &&
+        (json_data.stores[0][FILE_ASSEMBLIES_BLOB] instanceof Object) &&
+        (json_data.stores[0][FILE_ASSEMBLIES_BLOB]['header']['store_id'] === 0) &&
+        (json_data.stores[0][FILE_ASSEMBLIES_BLOB]['header']['lec'] === json_data.assemblies.length) &&
+        (json_data.stores[0][FILE_ASSEMBLIES_BLOB]['header']['gec']   > json_data.assemblies.length) &&
+        (json_data.assemblies[json_data.assemblies.length - 1]['store_id'] === 0)
+      ) {
+        json_data.stores[0][FILE_ASSEMBLIES_BLOB]['header']['gec'] = json_data.assemblies.length;
       }
     }
   }
