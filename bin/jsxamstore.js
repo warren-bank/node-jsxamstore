@@ -478,13 +478,17 @@ async function do_unpack(in_directory, out_directory, include_arch_assemblies, f
     if (!Array.isArray(include_arch_assemblies)) {
       include_arch_assemblies = (!!include_arch_assemblies && (typeof include_arch_assemblies === 'string')) ? [include_arch_assemblies] : [];
     }
-    if (include_arch_assemblies.includes('no') || include_arch_assemblies.includes('0')) {
+    if (include_arch_assemblies.length) {
+      // normalize values to lowercase
+      include_arch_assemblies = include_arch_assemblies.map(arch => arch.toLowerCase())
+    }
+    if (include_arch_assemblies.includes('none') || include_arch_assemblies.includes('no') || include_arch_assemblies.includes('0')) {
       all_arch = false;
       include_arch_assemblies = [];
     }
     if (include_arch_assemblies.length) {
-      // normalize values to lowercase, then filter to remove invalid values
-      include_arch_assemblies = include_arch_assemblies.map(arch => arch.toLowerCase()).filter(arch => valid_arch.includes(arch));
+      // filter to remove invalid values
+      include_arch_assemblies = include_arch_assemblies.filter(arch => valid_arch.includes(arch));
     }
     if (include_arch_assemblies.length) {
       all_arch = false;
@@ -741,7 +745,7 @@ async function unpack_store(args) {
       array: true,
       type: 'string',
       default: [],
-      describe: 'Which architectures to unpack. By default, all are selected. To select a subset, repeat flag with any combination of: "arm", "arm64", "x86", "x86_64". To exclude all, use: "no" or "0".',
+      describe: 'Which architectures to unpack. Default is all. To select a subset, repeat flag with any combination of: "arm", "arm64", "x86", "x86_64". To exclude all, use: "none", "no", or "0".',
     })
     .option('force', {
       alias: 'f',
