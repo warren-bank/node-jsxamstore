@@ -315,7 +315,8 @@ class AssemblyStore {
     const unpacked_payload_len = compressed_data.readUInt32LE(8);
     const compressed_payload = compressed_data.subarray(12);
 
-    const uncompressed = await lz4.uncompressBlock(compressed_payload);
+    const dst_buffer_size = unpacked_payload_len + 1024;
+    const uncompressed = await lz4.uncompressBlock(compressed_payload, dst_buffer_size);
     const decompressedSize = uncompressed.length;
 
     if (decompressedSize !== unpacked_payload_len) {
