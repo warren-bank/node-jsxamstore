@@ -60,6 +60,7 @@ function unpack_store(args) {
     .option('blob', {
       alias: 'b',
       type: 'string',
+      default: './assemblies.armeabi_v7a.blob',
       describe: 'Where to load architecture-specific blob from.',
     })
     .help(true)

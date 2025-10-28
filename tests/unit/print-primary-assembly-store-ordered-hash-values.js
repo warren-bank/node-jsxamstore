@@ -4,10 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const { argv, exit } = require('process');
 
-/** Global Constants **/
-
-const FILE_ASSEMBLIES_BLOB = 'assemblies.blob';
-
 /** Classes **/
 
 class AssemblyStore {
@@ -59,20 +55,18 @@ class AssemblyStore {
 
 /** Utility functions **/
 
-function do_unpack(in_directory, out_filename) {
-  in_directory = path.resolve(in_directory);
+function do_unpack(in_filename, out_filename) {
+  in_filename  = path.resolve(in_filename);
   out_filename = path.resolve(out_filename);
 
-  const assemblies_path = path.join(in_directory, FILE_ASSEMBLIES_BLOB);
-
-  if (!fs.existsSync(assemblies_path)) {
-    console.log(`Main assemblies blob '${assemblies_path}' does not exist!`);
+  if (!fs.existsSync(in_filename)) {
+    console.log(`Main assemblies blob '${in_filename}' does not exist!`);
     return 1;
   }
 
   const json_data = { hash32: {hex: [], dec: []}, hash64: {hex: [], dec: []} };
 
-  const assembly_store = new AssemblyStore(assemblies_path);
+  const assembly_store = new AssemblyStore(in_filename);
 
   // Extract primary assembly
   assembly_store.extract_hashes(json_data);
@@ -90,10 +84,10 @@ function unpack_store(args) {
 
   const parser = yargs(args)
     .usage('Usage: node print-primary-assembly-store-ordered-hash-values.js [options]')
-    .option('dir', {
-      alias: 'd',
+    .option('blob', {
+      alias: 'b',
       type: 'string',
-      default: './',
+      default: './assemblies.blob',
       describe: 'Where to load primary blob from.',
     })
     .option('out', {
@@ -107,7 +101,7 @@ function unpack_store(args) {
 
   const parsed_args = parser.parse();
 
-  return do_unpack(parsed_args.dir, parsed_args.out);
+  return do_unpack(parsed_args.blob, parsed_args.out);
 }
 
 /** Main **/

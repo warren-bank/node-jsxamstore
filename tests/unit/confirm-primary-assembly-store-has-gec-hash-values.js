@@ -65,6 +65,7 @@ function unpack_store(args) {
     .option('blob', {
       alias: 'b',
       type: 'string',
+      default: './assemblies.blob',
       describe: 'Where to load primary blob from.',
     })
     .help(true)
