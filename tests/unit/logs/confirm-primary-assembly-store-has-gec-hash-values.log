@@ -1,0 +1,4 @@
+assert data offset with "lec" hashes: 8596 bytes
+assert data offset with "gec" hashes: 8876 bytes
+actual data offset: 8876 bytes
+OK
